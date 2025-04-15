@@ -23,7 +23,7 @@
 			border: none;
 			border-radius: 8px;
 			cursor: pointer;
-			margin-bottom: 20px;
+			margin: 10px 10px 20px 10px;
 		}
 		button:hover {
 			background-color: #0056b3;
@@ -55,6 +55,7 @@
 
 	<h1>Ler QR Code de Certificado</h1>
 	<button onclick="iniciarLeitura()">📷 Ler QR Code</button>
+	<button id="btnFechar" onclick="fecharLeitura()" style="display: none;">❌ Fechar</button>
 
 	<div id="reader"></div>
 	<div id="resultado"></div>
@@ -91,8 +92,10 @@
 		function iniciarLeitura() {
 			const readerDiv = document.getElementById("reader");
 			const resultadoDiv = document.getElementById("resultado");
+			const btnFechar = document.getElementById("btnFechar");
 
 			readerDiv.style.display = "block";
+			btnFechar.style.display = "inline-block";
 			resultadoDiv.innerText = '';
 			resultadoDiv.className = '';
 
@@ -104,12 +107,13 @@
 						{ facingMode: "environment" },
 						{ fps: 10, qrbox: 250 },
 						codigo => {
-							scanner.stop(); // para o scanner após leitura
+							scanner.stop();
 							readerDiv.style.display = "none";
+							btnFechar.style.display = "none";
 							processarCodigo(codigo);
 						},
 						error => {
-							// silenciosamente ignora erros de leitura contínua
+							// ignora erros de leitura contínua
 						}
 					);
 				} else {
@@ -118,6 +122,23 @@
 			}).catch(err => {
 				mostrarErro("❌ Erro ao acessar a câmera.");
 			});
+		}
+
+		function fecharLeitura() {
+			const readerDiv = document.getElementById("reader");
+			const btnFechar = document.getElementById("btnFechar");
+
+			if (scanner) {
+				scanner.stop().then(() => {
+					readerDiv.style.display = "none";
+					btnFechar.style.display = "none";
+				}).catch(err => {
+					mostrarErro("❌ Erro ao fechar o scanner.");
+				});
+			} else {
+				readerDiv.style.display = "none";
+				btnFechar.style.display = "none";
+			}
 		}
 
 		function mostrarErro(msg) {
