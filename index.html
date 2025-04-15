@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Ler QR Code - IESPRO</title>
+	<script src="https://unpkg.com/html5-qrcode"></script>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			background-color: #f4f4f4;
+			padding: 20px;
+			text-align: center;
+		}
+		h1 {
+			color: #004080;
+		}
+		button {
+			background-color: #007bff;
+			color: white;
+			padding: 12px 20px;
+			font-size: 16px;
+			border: none;
+			border-radius: 8px;
+			cursor: pointer;
+			margin-bottom: 20px;
+		}
+		button:hover {
+			background-color: #0056b3;
+		}
+		#reader {
+			width: 300px;
+			margin: 0 auto;
+			display: none;
+		}
+		#resultado {
+			margin-top: 20px;
+			padding: 15px;
+			font-size: 16px;
+			font-weight: bold;
+			white-space: pre-wrap;
+			border-radius: 10px;
+		}
+		.valido {
+			background-color: #d4edda;
+			color: #155724;
+		}
+		.erro {
+			background-color: #f8d7da;
+			color: #721c24;
+		}
+	</style>
+</head>
+<body>
+
+	<h1>Ler QR Code de Certificado</h1>
+	<button onclick="iniciarLeitura()">📷 Ler QR Code</button>
+
+	<div id="reader"></div>
+	<div id="resultado"></div>
+
+	<script>
+		const base62chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+		function fromBase62(str) {
+			let num = 0;
+			for (let i = 0; i < str.length; i++) {
+				num = num * 62 + base62chars.indexOf(str[i]);
+			}
+			return num;
+		}
+
+		function fromCharCodesBase62(base62Str) {
+			let texto = '';
+			for (let i = 0; i < base62Str.length; i += 4) {
+				const base62Char = base62Str.substring(i, i + 2);
+				const base62Verificador = base62Str.substring(i + 2, i + 4);
+
+				const code = fromBase62(base62Char);
+				const verificador = fromBase62(base62Verificador);
+
+				if (verificador !== code + 1) {
+					return "❌ Violação no código";
+				}
+				texto += String.fromCharCode(code);
+			}
+			return texto.trim();
+		}
+
+		let scanner;
+
+		function iniciarLeitura() {
+			const readerDiv = document.getElementById("reader");
+			const resultadoDiv = document.getElementById("resultado");
+
+			readerDiv.style.display = "block";
+			resultadoDiv.innerText = '';
+			resultadoDiv.className = '';
+
+			scanner = new Html5Qrcode("reader");
+
+			Html5Qrcode.getCameras().then(cameras => {
+				if (cameras && cameras.length) {
+					scanner.start(
+						{ facingMode: "environment" },
+						{ fps: 10, qrbox: 250 },
+						codigo => {
+							scanner.stop(); // para o scanner após leitura
+							readerDiv.style.display = "none";
+							processarCodigo(codigo);
+						},
+						error => {
+							// silenciosamente ignora erros de leitura contínua
+						}
+					);
+				} else {
+					mostrarErro("❌ Nenhuma câmera encontrada.");
+				}
+			}).catch(err => {
+				mostrarErro("❌ Erro ao acessar a câmera.");
+			});
+		}
+
+		function mostrarErro(msg) {
+			const resultadoDiv = document.getElementById("resultado");
+			resultadoDiv.className = "erro";
+			resultadoDiv.innerText = msg;
+		}
+
+		function processarCodigo(codigo) {
+			const resultadoDiv = document.getElementById("resultado");
+			const partes = codigo.split(".");
+
+			if (partes.length !== 5) {
+				resultadoDiv.className = "erro";
+				resultadoDiv.innerText = "❌ Formato inválido do código. Erro na estrutura do código.";
+				return;
+			}
+
+			try {
+				const [dataCod, horaCod, grupo3, grupo4] = partes;
+
+				const base62Data = dataCod.replace(/^0+/, '');
+				const base62Hora = horaCod.replace(/^0+/, '');
+
+				const vlrData = fromBase62(base62Data);
+				const vlrHora = fromBase62(base62Hora);
+
+				const ano = Math.floor(vlrData / (32 * 32));
+				const mes = Math.floor((vlrData % (32 * 32)) / 32);
+				const dia = vlrData % 32;
+
+				const hh = Math.floor(vlrHora / 3600);
+				const mm = Math.floor((vlrHora % 3600) / 60);
+				const ss = vlrHora % 60;
+
+				const data = `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`;
+				const hora = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+
+				let dadosDecodificados = fromCharCodesBase62(grupo3);
+				let curso = dadosDecodificados.substring(0, 40);
+
+				let tam_curso = parseInt(grupo4, 10) - 100;
+
+				curso = curso.substring(0, tam_curso);
+
+				resultadoDiv.className = "valido";
+				resultadoDiv.innerHTML =
+					'<img src="https://cdn-icons-png.flaticon.com/128/18251/18251692.png" alt="Certificado Válido" style="width: 60px; display: block; margin: 0 auto 10px;" />' +
+					'<p style="color: black; font-family: Arial, sans-serif; font-weight: normal;">' +
+					'Curso: ' + curso + '<br>' +
+					'Data de Emissão: ' + data + '<br>' +
+					'Hora de Emissão: ' + hora + '</p>';
+			} catch (e) {
+				mostrarErro("❌ Erro ao processar o código.");
+			}
+		}
+	</script>
+
+</body>
+</html>
